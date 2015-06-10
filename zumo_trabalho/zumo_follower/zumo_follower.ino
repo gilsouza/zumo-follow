@@ -6,10 +6,10 @@
 
 #define SENSOR_THRESHOLD 300
 // Macro definida para dizer se "linha" ou pedaço dela deve ser evitada.
-#define ABOVE_LINE(sensor)((sensor) > SENSOR_THRESHOLD)
-#define TURN_SPEED 200
-#define SPEED 200 
-#define DISTANCE_OBJECT 10.0
+#define ABOVE_LINE(sensor)((sensor) < SENSOR_THRESHOLD)
+#define TURN_SPEED 150
+#define SPEED 150 
+#define DISTANCE_OBJECT 18.0
 
 #define MELODY_LENGTH 95
 
@@ -73,13 +73,13 @@ int lastError = 0;
  * Ao alterar o valor de white para 1 a macro ABOVE_LINE deve ficar (sensor) < SENSOR_THRESHOLD. 
  * Invertendo o sinal de comparacao para se adequar a sensibilidade
  */
-int white = 0;
+int white = 1;
 // Usado para controle do indice usado para as notas e duracoes da musica tocada.
 unsigned char currentIdx;
 
 // pinagem usada pelo ultra som.
-const uint8_t trig_pin = 4;
-const uint8_t echo_pin = 5;
+const uint8_t trig_pin = A5;
+const uint8_t echo_pin = A4;
 uint32_t print_timer;
 
 /*
@@ -89,7 +89,6 @@ uint32_t print_timer;
  * Nela Inicia faleremos a inicializacao dos sensores de refletancia,
  * calibragem dos sensores e setup dos pinos para sensor ultra som.
  */
-
 void setup()
 {
   // buzzer indica que robo iniciou setup
@@ -101,7 +100,7 @@ void setup()
   // aguarda confirmacao para inicio da calibragem
   button.waitForButton();
   
-  // calibragem
+  // calibragem dos sensores de refletancia
   calibrate();
   // setup de pinos ultra som
   setupUltraSom();
@@ -118,8 +117,12 @@ void loop()
   // Teste
   //getDistanceWithUltraSonic();
   solveCircuit();
+  
   // Teste
   //aroundTheWorld();
+  //delay(100000000000000000);
+  //motors.setSpeeds(0,0);
+  
 }
 
 void setupUltraSom()
@@ -159,6 +162,7 @@ double getDistanceWithUltraSonic() {
     
     return distance;
   }
+  return 100.0;
 }
 
 /*
@@ -197,6 +201,9 @@ void solveCircuit()
   // looping para circuito
   while(1)
   {
+    // calcula distancia de um objeto proximo
+    double distance = getDistanceWithUltraSonic();
+    
     /* le os sensores passando como terceiro argumento o uso de linha branca ou nao 
        e retorna a posicao.
        de acordo com a documentacao sera a media ponderada conforme formula abaixo:
@@ -218,23 +225,23 @@ void solveCircuit()
     if(power_difference < -SPEED)
       power_difference = -SPEED;
      
-     // ajusta direcao
+    // ajusta direcao
     if(power_difference < 0)
       motors.setSpeeds(SPEED + power_difference, SPEED);
     else
       motors.setSpeeds(SPEED, SPEED - power_difference);
       
-      // verifica distancia do objeto para realizar contorno
-  //  if (getDistanceWithUltraSonic() <= DISTANCE_OBJECT)
-//    {
-        // para antes de contornar
-  //    motors.setSpeeds(0,0);
-        // realiza contorno pela direita
-//      aroundTheWorld();
-//    }
-//    else
-//    {
-      
+    // verifica distancia do objeto para realizar contorno
+    if (distance <= DISTANCE_OBJECT)
+    {
+      // para antes de contornar
+      motors.setSpeeds(0,0);
+      // realiza contorno pela direita
+      aroundTheWorld();
+      motors.setSpeeds(SPEED, SPEED);
+    }
+    else
+    {      
       // condicao de parada para o loop.
       // linha transversal encontrada no array dos sensores.
       if(ABOVE_LINE(sensors[1]) && ABOVE_LINE(sensors[2]) && ABOVE_LINE(sensors[3]) && ABOVE_LINE(sensors[4]))
@@ -253,7 +260,7 @@ void solveCircuit()
       {
         return;
       }
-    //}
+    }
   }
 }
 
@@ -264,13 +271,13 @@ void solveCircuit()
 void aroundTheWorld()
 {
   turn('R');
-  motors.setSpeeds(TURN_SPEED, TURN_SPEED);
+  motors.setSpeeds(SPEED, SPEED);
   delay(1000);
   turn('L');
-  motors.setSpeeds(TURN_SPEED, TURN_SPEED);
-  delay(1000);
+  motors.setSpeeds(SPEED, SPEED);
+  delay(2000);
   turn('L');
-  motors.setSpeeds(TURN_SPEED, TURN_SPEED);
+  motors.setSpeeds(SPEED, SPEED);
   delay(1000);
   turn('R');
   motors.setSpeeds(0, 0);
@@ -286,16 +293,18 @@ void turn(char dir)
     // esquerda ou para tras
     case 'L':
     case 'B':
+      motors.setSpeeds(0, 0);
       motors.setSpeeds(-TURN_SPEED, TURN_SPEED);
-      delay(700);
+      delay(750);
       motors.setSpeeds(0, 0);
     
     break;
     
     // direita
     case 'R':
+      motors.setSpeeds(0, 0);
       motors.setSpeeds(TURN_SPEED, -TURN_SPEED);
-      delay(700);
+      delay(750);
       motors.setSpeeds(0, 0);
       
     break;
@@ -324,9 +333,9 @@ void calibrate()
   for(i = 0; i < 80; i++)
   {
     if ((i > 10 && i <= 30) || (i > 50 && i <= 70))
-      motors.setSpeeds(-200, 200);
+      motors.setSpeeds(-SPEED, SPEED);
     else
-      motors.setSpeeds(200, -200);
+      motors.setSpeeds(SPEED, -SPEED);
     reflectanceSensors.calibrate();
     
     // loop demorara no maximo 20 * 80 = 1600 ms
